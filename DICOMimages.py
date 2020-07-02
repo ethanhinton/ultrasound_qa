@@ -31,7 +31,7 @@ class DICOMimage:
         region = self.region
         pixels = pixels[region[1]:region[3], region[0]:region[2]]
         x = int(pixels.shape[1] / 2)
-        
+
         self.data.PixelData = self.pixels.tobytes()
 
     def showimage(self):
