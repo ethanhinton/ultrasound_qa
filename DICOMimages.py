@@ -20,6 +20,32 @@ class DICOMimage:
                        self.data[0x18, 0x6011][0][0x18, 0x601E].value,
                        self.data[0x18, 0x6011][0][0x18, 0x6020].value)
 
+    #crops the image to remove information from the outside
+    def crop(self):
+        pixels = self.pixels
+        region = self.region
+        self.pixels = pixels[region[1]:region[3], region[0]:region[2]]
+        self.data.PixelData = self.pixels.tobytes()
+
+    def showimage(self):
+        plt.imshow(self.pixels)
+        plt.show()
+
+    # Prints pixel array in full
+    def pixelarray(self):
+        np.set_printoptions(threshold=sys.maxsize)
+        return self.pixels
+
+    def islinear(self):
+        if self.type == "LINEAR":
+            return True
+        else:
+            return False
+
+
+class linearDICOMimage(DICOMimage):
+    pass
+
 
 class curvedDICOMimage(DICOMimage):
 
@@ -28,12 +54,6 @@ class curvedDICOMimage(DICOMimage):
         # Finds the coordinates of the top two points of the curved image and the coordinates of the middle of the sector
         self.sectorcoords = self.find_top_values(), self.find_middle_value()
 
-    #crops the image to remove information from the outside
-    def crop(self):
-        pixels = self.pixels
-        region = self.region
-        self.pixels = pixels[region[1]:region[3], region[0]:region[2]]
-        self.data.PixelData = self.pixels.tobytes()
 
     # finds the coordinates of the two points at the top of the curved image (labelled x1,y1 and x2,y2 in diagram)
     def find_top_values(self):
@@ -61,15 +81,6 @@ class curvedDICOMimage(DICOMimage):
         h1 = int(sqrt(r1**2 - l**2))
         return [middle[0] - m - h1 , middle[1]]
 
-
-    def showimage(self):
-        plt.imshow(self.pixels)
-        plt.show()
-
-    # Prints pixel array in full
-    def pixelarray(self):
-        np.set_printoptions(threshold=sys.maxsize)
-        return self.pixels
 
     # Having trouble thinking of ways to do this
     def refactor(self):
