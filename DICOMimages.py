@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 from math import sqrt
+import datetime
 
 
 class DICOMimage:
@@ -12,19 +13,25 @@ class DICOMimage:
         self.data = pydicom.read_file(path)
         self.pixels = self.data.pixel_array
         self.type = self.data[0x18, 0x6031].value
+        self.date = DICOMimage.reformat_date(self.data[0x8, 0x23].value)
+        self.seriel = self.data[0x18, 0x1000].value
+        self.manufacturer = self.data[0x8, 0x70].value
+        self.scannermodel = self.data[0x8, 0x1090].value
 
         # Extracts image location data from DICOM header in form (x1, y1, x2, y2, x(centre of image))
-        self.region = (self.data[0x18, 0x6011][0][0x18, 0x6018].value,
+        self.region = [self.data[0x18, 0x6011][0][0x18, 0x6018].value,
                        self.data[0x18, 0x6011][0][0x18, 0x601A].value,
                        self.data[0x18, 0x6011][0][0x18, 0x601C].value,
                        self.data[0x18, 0x6011][0][0x18, 0x601E].value,
-                       self.data[0x18, 0x6011][0][0x18, 0x6020].value)
+                       self.data[0x18, 0x6011][0][0x18, 0x6020].value]
 
     #crops the image to remove information from the outside
     def crop(self):
         pixels = self.pixels
         region = self.region
-        self.pixels = pixels[region[1]:region[3], region[0]:region[2]]
+        pixels = pixels[region[1]:region[3], region[0]:region[2]]
+        x = int(pixels.shape[1] / 2)
+        
         self.data.PixelData = self.pixels.tobytes()
 
     def showimage(self):
@@ -41,6 +48,28 @@ class DICOMimage:
             return True
         else:
             return False
+
+    @staticmethod
+    def reformat_date(date):
+        year = int(date[:4])
+        if date[4] == 0:
+            month = int(date[5])
+        else:
+            month = int(date[4:6])
+        if date[6] == 0:
+            day = int(date[7])
+        else:
+            day = int(date[6:8])
+        return datetime.date(year, month, day).strftime('%d,%m,%Y')
+
+    @staticmethod
+    def nonzero_threshold(pixels, threshold):
+        nonzeros = sum(1 for pixel in pixels if pixel !=0)
+        if nonzeros/len(pixels) >= threshold:
+            return True
+        else:
+            return False
+
 
 
 class linearDICOMimage(DICOMimage):

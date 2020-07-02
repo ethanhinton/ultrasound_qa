@@ -16,4 +16,13 @@ def analyse(path):
     else:
         del image
         image = curvedDICOMimage(path)
-    
+        image.refactor()
+
+    image.crop()
+    image.showimage()
+
+
+
+
+
+
