@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+#Other files
+I2LBHP18
+Diagram.JPG
+.DS_Store
+.idea/
