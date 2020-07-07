@@ -25,15 +25,6 @@ class DICOMimage:
                        self.data[0x18, 0x6011][0][0x18, 0x601E].value,
                        self.data[0x18, 0x6011][0][0x18, 0x6020].value]
 
-    #crops the image to remove information from the outside
-    def crop(self):
-        pixels = self.pixels
-        region = self.region
-        pixels = pixels[region[1]:region[3], region[0]:region[2]]
-        x = int(pixels.shape[1] / 2)
-
-        self.data.PixelData = self.pixels.tobytes()
-
     def showimage(self):
         plt.imshow(self.pixels)
         plt.show()
@@ -64,7 +55,7 @@ class DICOMimage:
 
     @staticmethod
     def nonzero_threshold(pixels, threshold):
-        nonzeros = sum(1 for pixel in pixels if pixel !=0)
+        nonzeros = sum(1 for pixel in pixels if pixel.any() !=0)
         if nonzeros/len(pixels) >= threshold:
             return True
         else:
@@ -73,7 +64,28 @@ class DICOMimage:
 
 
 class linearDICOMimage(DICOMimage):
-    pass
+
+    #crops the image to remove information from the outside FINISH!!!!!!!
+    def main_crop(self):
+        pixels = self.pixels
+        region = self.region
+        self.region[4] = region[4] - region[0]
+        self.pixels = pixels[region[1]:region[3], region[0]:region[2]]
+        self.data.PixelData = self.pixels.tobytes()
+        
+    def crop_sides(self):
+        pixels = self.pixels
+        centre = self.region[4]
+
+        for h in range(pixels.shape[1] - centre):
+            values = []
+            for n in range(pixels.shape[0] - 1):
+                values.append(pixels[n, centre + h])
+            if self.nonzero_threshold(values, 0.05):
+                continue
+            else:
+                self.pixels = pixels[:, centre - h:centre + h]
+                break
 
 
 class curvedDICOMimage(DICOMimage):
