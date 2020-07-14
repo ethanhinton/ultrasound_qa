@@ -2,7 +2,6 @@ import pydicom
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
-from math import sqrt
 import datetime
 
 
@@ -84,7 +83,7 @@ class linearDICOMimage(DICOMimage):
             if self.nonzero_threshold(values, 0.05):
                 continue
             else:
-                self.pixels = pixels[:, centre - h:centre + h]
+                self.pixels = pixels[:, centre - (h-2):centre + (h-2)]
                 break
 
 
@@ -94,6 +93,8 @@ class curvedDICOMimage(DICOMimage):
         super().__init__(path)
         # Finds the coordinates of the top two points of the curved image and the coordinates of the middle of the sector
         self.sectorcoords = self.find_top_values(), self.find_middle_value()
+        self.centre = self.circle_centre()
+
 
 
     # finds the coordinates of the two points at the top of the curved image (labelled x1,y1 and x2,y2 in diagram)
@@ -119,10 +120,30 @@ class curvedDICOMimage(DICOMimage):
         m = middle[0] - x1[0]
         l = middle[1] - x1[1]
         r1 = (l**2 + m**2) / (2*m)
-        h1 = int(sqrt(r1**2 - l**2))
+        h1 = int(math.sqrt(r1**2 - l**2))
         return [middle[0] - m - h1 , middle[1]]
+
 
 
     # Having trouble thinking of ways to do this
     def refactor(self):
-        pass
+
+
+    def zero_coords(self, point):
+        return (point[0] - self.centre[0], point[1] - self.centre[1])
+
+    def reset_coords(self, point):
+        return (point[0] + self.centre[0], point[1] + self.centre[1])
+
+    @staticmethod
+    def cart2pol(x, y):
+        rho = np.sqrt(x ** 2 + y ** 2)
+        phi = np.arctan2(y, x)
+        return (rho, phi)
+
+    @staticmethod
+    def pol2cart(rho, phi):
+        x = rho * np.cos(phi)
+        y = rho * np.sin(phi)
+        return (x, y)
+

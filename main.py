@@ -18,7 +18,8 @@ def analyse(path):
         image = curvedDICOMimage(path)
         image.refactor()
 
-    image.crop()
+    image.main_crop()
+    image.crop_sides()
     image.showimage()
 
 
