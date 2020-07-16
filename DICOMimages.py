@@ -22,7 +22,7 @@ class DICOMimage:
                        self.data[0x18, 0x6011][0][0x18, 0x601A].value,
                        self.data[0x18, 0x6011][0][0x18, 0x601C].value,
                        self.data[0x18, 0x6011][0][0x18, 0x601E].value,
-                       self.data[0x18, 0x6011][0][0x18, 0x6020].value]
+                       self.data[0x18, 0x6011][0][0x18, 0x6020].value + self.data[0x18, 0x6011][0][0x18, 0x6018].value]
 
     def showimage(self):
         plt.imshow(self.pixels)
@@ -97,7 +97,7 @@ class curvedDICOMimage(DICOMimage):
 
 
 
-    # finds the coordinates of the two points at the top of the curved image (labelled x1,y1 and x2,y2 in diagram)
+    # finds the coordinates of the two points at the top of the curved image (labelled x1,y1 and x2,y2 in diagram) CHANGE FOR REFERENCE PIXELS
     def find_top_values(self):
         xmiddle = self.region[4]
         height = self.region[1] + 1
@@ -120,14 +120,12 @@ class curvedDICOMimage(DICOMimage):
         m = middle[0] - x1[0]
         l = middle[1] - x1[1]
         r1 = (l**2 + m**2) / (2*m)
-        h1 = int(math.sqrt(r1**2 - l**2))
+        h1 = int(np.sqrt(r1**2 - l**2))
         return [middle[0] - m - h1 , middle[1]]
 
 
-
-    # Having trouble thinking of ways to do this
     def refactor(self):
-
+        print(self.sectorcoords[0][1],self.sectorcoords[0][0])
 
     def zero_coords(self, point):
         return (point[0] - self.centre[0], point[1] - self.centre[1])
@@ -137,6 +135,8 @@ class curvedDICOMimage(DICOMimage):
 
     @staticmethod
     def cart2pol(x, y):
+        print(x)
+        print(y)
         rho = np.sqrt(x ** 2 + y ** 2)
         phi = np.arctan2(y, x)
         return (rho, phi)
