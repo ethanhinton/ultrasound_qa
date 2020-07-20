@@ -124,8 +124,27 @@ class curvedDICOMimage(DICOMimage):
         return [middle[0] - m - h1 , middle[1]]
 
 
-    def refactor(self):
-        print(self.sectorcoords[0][1],self.sectorcoords[0][0])
+    def refactor(self)-:
+        print('cartesian top left point --> ' + str(self.sectorcoords[0][0]))
+        print('cartesian centre --> ' + str(self.centre))
+        imageleft = self.zero_coords(self.sectorcoords[0][0])
+        imageright = self.zero_coords(self.sectorcoords[0][1])
+        print('cartesian top left point zeroed --> ' + str(imageleft))
+        print('cartesian top left point zeroed --> ' + str(imageright))
+        rho_min = self.cart2pol(imageleft[0], imageleft[1])[0]
+        phi_max = self.cart2pol(imageleft[0], imageleft[1])[1]
+        print('polar min radius --> ' + str(rho_min))
+        print('polar max angle --> ' + str(abs(phi_max)))
+        rho_max = self.pixels.shape[0] - self.centre[0]
+        print('vertical pixels --> ' + str(self.pixels.shape[0]))
+        print('polar max radius --> ' + str(rho_max))
+        arc_length = int(2 * phi_max * rho_max)
+        phi_increment = (2 * phi_max) / arc_length
+        print('arc length --> ' + str(arc_length))
+        print('angle increment --> ' + str(phi_increment))
+
+
+
 
     def zero_coords(self, point):
         return (point[0] - self.centre[0], point[1] - self.centre[1])
@@ -135,8 +154,6 @@ class curvedDICOMimage(DICOMimage):
 
     @staticmethod
     def cart2pol(x, y):
-        print(x)
-        print(y)
         rho = np.sqrt(x ** 2 + y ** 2)
         phi = np.arctan2(y, x)
         return (rho, phi)
