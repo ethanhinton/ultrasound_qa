@@ -5,6 +5,7 @@ import sys
 import datetime
 
 
+
 class DICOMimage:
 
     def __init__(self, path):
@@ -124,7 +125,7 @@ class curvedDICOMimage(DICOMimage):
         return [middle[0] - m - h1 , middle[1]]
 
 
-    def refactor(self)-:
+    def refactor(self):
         print('cartesian top left point --> ' + str(self.sectorcoords[0][0]))
         print('cartesian centre --> ' + str(self.centre))
         imageleft = self.zero_coords(self.sectorcoords[0][0])
@@ -144,6 +145,11 @@ class curvedDICOMimage(DICOMimage):
         print('angle increment --> ' + str(phi_increment))
 
 
+        for i in range(int(rho_min), int(rho_max)):
+            cartesian = self.pol2cart(i, phi_max)
+            cart_reset = self.reset_coords(cartesian)
+            pixel_val = self.nearest_neighbour(cart_reset[0], cart_reset[1])
+            print(pixel_val)
 
 
     def zero_coords(self, point):
@@ -151,6 +157,14 @@ class curvedDICOMimage(DICOMimage):
 
     def reset_coords(self, point):
         return (point[0] + self.centre[0], point[1] + self.centre[1])
+
+    def nearest_neighbour(self, y, x):
+        y_round = int(round(y))
+        x_round = int(round(x))
+        return self.pixels[y_round, x_round]
+
+
+
 
     @staticmethod
     def cart2pol(x, y):
@@ -163,4 +177,3 @@ class curvedDICOMimage(DICOMimage):
         x = rho * np.cos(phi)
         y = rho * np.sin(phi)
         return (x, y)
-
