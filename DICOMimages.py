@@ -178,6 +178,7 @@ class curvedDICOMimage(DICOMimage):
 
         plt.imshow(refactored)
         plt.show()
+        self.refactored = refactored
 
 
 
