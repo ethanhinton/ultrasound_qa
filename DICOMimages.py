@@ -24,6 +24,7 @@ class DICOMimage:
                        self.data[0x18, 0x6011][0][0x18, 0x601C].value,
                        self.data[0x18, 0x6011][0][0x18, 0x601E].value,
                        self.data[0x18, 0x6011][0][0x18, 0x6020].value + self.data[0x18, 0x6011][0][0x18, 0x6018].value]
+        self.grayscale()
 
     def showimage(self):
         plt.imshow(self.pixels)
@@ -39,6 +40,12 @@ class DICOMimage:
             return True
         else:
             return False
+
+    #If image is RGB, this method converts it to grayscale
+    def grayscale(self):
+        pixels = self.pixels
+        if self.data[0x28, 0x2].value == 3:
+            self.pixels = pixels[:, :, 2]
 
     @staticmethod
     def reformat_date(date):
@@ -126,30 +133,52 @@ class curvedDICOMimage(DICOMimage):
 
 
     def refactor(self):
+        STRETCH = 2
+
+
         print('cartesian top left point --> ' + str(self.sectorcoords[0][0]))
         print('cartesian centre --> ' + str(self.centre))
         imageleft = self.zero_coords(self.sectorcoords[0][0])
         imageright = self.zero_coords(self.sectorcoords[0][1])
         print('cartesian top left point zeroed --> ' + str(imageleft))
         print('cartesian top left point zeroed --> ' + str(imageright))
-        rho_min = self.cart2pol(imageleft[0], imageleft[1])[0]
-        phi_max = self.cart2pol(imageleft[0], imageleft[1])[1]
+        rho_min = int(self.cart2pol(imageleft[1], imageleft[0])[0])
+        phi_max = self.cart2pol(imageleft[1], imageleft[0])[1]
+        phi_min = self.cart2pol(imageright[1], imageright[0])[1]
         print('polar min radius --> ' + str(rho_min))
         print('polar max angle --> ' + str(abs(phi_max)))
-        rho_max = self.pixels.shape[0] - self.centre[0]
+        rho_max = int(self.pixels.shape[0] - self.centre[0])
         print('vertical pixels --> ' + str(self.pixels.shape[0]))
         print('polar max radius --> ' + str(rho_max))
-        arc_length = int(2 * phi_max * rho_max)
-        phi_increment = (2 * phi_max) / arc_length
+        arc_length = abs(int(2 * (phi_max - phi_min) * rho_max))
+        phi_increment = (phi_max - phi_min) / arc_length
         print('arc length --> ' + str(arc_length))
         print('angle increment --> ' + str(phi_increment))
 
+        #Creates a blank linear numpy array to input refactored data into
+        refactored = np.ndarray(shape=(STRETCH * (rho_max - rho_min), arc_length))
+        print(refactored.shape)
 
-        for i in range(int(rho_min), int(rho_max)):
-            cartesian = self.pol2cart(i, phi_max)
-            cart_reset = self.reset_coords(cartesian)
-            pixel_val = self.nearest_neighbour(cart_reset[0], cart_reset[1])
-            print(pixel_val)
+        x = 0
+        for j in range(arc_length):
+            phi = phi_max - (j * phi_increment)
+            y = 0
+            for i in range(STRETCH * rho_min, STRETCH * (rho_max - 1)):
+                i = i / STRETCH
+                cartesian = self.pol2cart(i, phi)
+                #print(cartesian)
+                cart_reset = self.reset_coords(cartesian)
+                # print(j)
+                # print(cart_reset[0])
+                pixel_val = self.nearest_neighbour(cart_reset[0], cart_reset[1])
+                refactored[y,x] = pixel_val
+
+                y += 1
+            x += 1
+
+        plt.imshow(refactored)
+        plt.show()
+
 
 
     def zero_coords(self, point):
@@ -176,4 +205,4 @@ class curvedDICOMimage(DICOMimage):
     def pol2cart(rho, phi):
         x = rho * np.cos(phi)
         y = rho * np.sin(phi)
-        return (x, y)
+        return (y, x)
