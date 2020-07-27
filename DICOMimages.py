@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 import datetime
+from skimage import measure
 
 
 
@@ -47,6 +48,40 @@ class DICOMimage:
         if self.data[0x28, 0x2].value == 3:
             self.pixels = pixels[:, :, 2]
 
+    def condense(self, List, factor):
+        new_length = int(len(List) / factor)
+        standard_deviation = []
+        mean_list = []
+        old_list = List[:]
+        for i in range(new_length):
+            mean = []
+            for element in range(factor):
+                mean.append(List.pop(0))
+            mean_list.append(np.mean(mean))
+            standard_deviation.append(np.std(mean) / self.minmax(old_list))
+        return standard_deviation, mean_list
+
+    def crop_bottom(self):
+        if self.type == "LINEAR":
+            image = self.pixels
+        else:
+            image = self.refactored
+
+        width = int(image.shape[1] / 10)
+        mean_values = self.middle_values(image, width)
+        factor_constant = 15
+        factor = int(len(mean_values) / factor_constant)
+        standard_dev_list, mean_list = self.condense(mean_values, factor)
+        index_cut = self.cutoff_index(standard_dev_list, mean_list, factor)
+
+        if self.type == "LINEAR":
+            self.pixels = image[:index_cut, :]
+        else:
+            self.refactored = image[:index_cut, :]
+
+        plt.imshow(self.refactored)
+        plt.show()
+
     @staticmethod
     def reformat_date(date):
         year = int(date[:4])
@@ -68,6 +103,35 @@ class DICOMimage:
         else:
             return False
 
+    @staticmethod
+    def cutoff_index(standard_dev_list, mean_list, factor):
+        for index, value in enumerate(standard_dev_list):
+            if value < 0.015 and mean_list[index] < 230:
+                new_index = index * factor
+                return new_index
+            elif index == len(standard_dev_list) - 1:
+                return None
+
+    @staticmethod
+    def minmax(val_list):
+        min_val = min(val_list)
+        max_val = max(val_list)
+        return max_val - min_val
+
+    @staticmethod
+    def middle_values(image, width):
+        middle = int(image.shape[1] / 2)
+        mean_values = []
+        for i in range(-(int(width / 2)), (int(width / 2))):
+            values = []
+            for pixel in range(image.shape[0]):
+                values.append(image[pixel, middle + i] / width)
+            if mean_values == []:
+                mean_values = values
+            else:
+                for pixel in range(len(mean_values)):
+                    mean_values[pixel] += values[pixel]
+        return mean_values
 
 
 class linearDICOMimage(DICOMimage):
@@ -93,6 +157,72 @@ class linearDICOMimage(DICOMimage):
             else:
                 self.pixels = pixels[:, centre - (h-2):centre + (h-2)]
                 break
+
+    def alternative_crop(self):
+        image = self.pixels
+
+        # get the pixel information
+        cutoff = int(0.08 * image.shape[0])
+        image = image[cutoff:, :]
+
+        # convert to a black and white image
+        bw = (image > 0)
+
+        # find connected white regions
+        labels = measure.label(bw, connectivity=1)
+        properties = measure.regionprops(labels)
+
+        # empty area list to add to and then find the biggest area
+
+        maxArea = 0
+        maxIndex = 0
+
+        for prop in properties:
+            # print('Label: {} >> Object size: {}'.format(prop.label, prop.area))
+            if prop.area > maxArea:
+                maxArea = prop.area
+                maxIndex = prop.label
+
+        bboxCoord = properties[maxIndex - 1].bbox
+        minx = bboxCoord[1]
+        miny = bboxCoord[0]
+        maxx = bboxCoord[3]
+        maxy = bboxCoord[2]
+
+        if miny > int(bw.shape[0] / 6):
+            bw = bw[:miny, :]
+            labels = measure.label(bw, connectivity=1)
+            properties = measure.regionprops(labels)
+            maxArea = 0
+            maxIndex = 0
+
+            # loop over the connected white regions and select the largest region size
+            for prop in properties:
+                if prop.area > maxArea:
+                    maxArea = prop.area
+                    maxIndex = prop.label
+
+            # crop the original image to the bounding box of the maximum white region
+
+            bboxCoord = properties[maxIndex - 1].bbox
+
+            minx_new = bboxCoord[1]
+            miny_new = bboxCoord[0]
+            maxx_new = bboxCoord[3]
+            maxy_new = bboxCoord[2]
+
+            if maxy_new - miny_new > 0.05 * pixels.shape[0]:
+                croppedImage = image[miny_new:maxy_new, minx_new:maxx_new]
+            else:
+                croppedImage = image[miny:maxy, minx:maxx]
+        else:
+            croppedImage = image[miny:maxy, minx:maxx]
+
+        self.pixels = croppedImage
+        # save header as one channel
+        self.data[0x28, 0x2].value = 1
+        plt.imshow(croppedImage)
+        plt.show()
 
 
 class curvedDICOMimage(DICOMimage):
@@ -182,6 +312,10 @@ class curvedDICOMimage(DICOMimage):
 
 
 
+
+
+
+
     def zero_coords(self, point):
         return (point[0] - self.centre[0], point[1] - self.centre[1])
 
@@ -207,3 +341,4 @@ class curvedDICOMimage(DICOMimage):
         x = rho * np.cos(phi)
         y = rho * np.sin(phi)
         return (y, x)
+
