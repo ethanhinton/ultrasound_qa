@@ -82,6 +82,25 @@ class DICOMimage:
         plt.imshow(self.refactored)
         plt.show()
 
+    def analyse(self):
+        if self.type == "LINEAR":
+            pixels = self.pixels
+        else:
+            pixels = self.refactored
+
+        columns = [sum(pixels[:,i]) for i in range(pixels.shape[1])]
+        print(columns)
+        cov = self.cov(columns)
+        skew = self.skew(columns)
+        low_L = self.low(columns[:int(len(columns) / 10)], columns)
+        low_CL = self.low(columns[int(len(columns) / 10):int(len(columns) * (3 / 10))], columns)
+        low_C = self.low(columns[int(len(columns) * (3 / 10)):int(len(columns) * (7 / 10))], columns)
+        low_CR = self.low(columns[int(len(columns) * (7 / 10)):int(len(columns) * (9 / 10))], columns)
+        low_R = self.low(columns[int(len(columns) / 10):], columns)
+        print(cov, skew, low_L, low_CL, low_C, low_CR, low_R)
+        return cov, skew, low_L, low_CL, low_C, low_CR, low_R
+
+
     @staticmethod
     def reformat_date(date):
         year = int(date[:4])
@@ -133,6 +152,37 @@ class DICOMimage:
                     mean_values[pixel] += values[pixel]
         return mean_values
 
+    @staticmethod
+    def cov(columns):
+        std = np.std(columns)
+        mean = np.mean(columns)
+        return (std / mean) * 100
+
+    @staticmethod
+    def skew(columns):
+        n = len(columns)
+        mean = np.mean(columns)
+        m1 = 0
+        m3 = 0
+        for column in columns:
+            m1 += (column - mean) ** 2
+            m3 += (column - mean) ** 3
+
+        m1 = m1 * (1/(n-1))
+        m3 = m3 * (1/n)
+        skew = m3 / (m1 ** (3/2))
+        return skew
+
+    @staticmethod
+    def low(segment, columns):
+        median = np.median(columns)
+        lowest = 0
+        for element in segment:
+            if lowest == 0:
+                lowest = (element - median) / median
+            elif ((element - median) / median) < lowest:
+                lowest = (element - median) / median
+        return abs(lowest) * 100
 
 class linearDICOMimage(DICOMimage):
 
@@ -157,6 +207,31 @@ class linearDICOMimage(DICOMimage):
             else:
                 self.pixels = pixels[:, centre - (h-2):centre + (h-2)]
                 break
+
+    def alt_crop_sides(self):
+        pixels = self.pixels
+        centre = int(pixels.shape[1] / 2)
+        for h in range(pixels.shape[1] - centre):
+            values = []
+            for n in range(pixels.shape[0] - 1):
+                values.append(pixels[n, centre + h])
+            if self.nonzero_threshold(values, 0.05):
+                continue
+            else:
+                pixels = pixels[:,:centre + (h)]
+                break
+
+        for h in range(pixels.shape[1] - centre):
+            values = []
+            for n in range(pixels.shape[0] - 1):
+                values.append(pixels[n, centre - h])
+            if self.nonzero_threshold(values, 0.05):
+                continue
+            else:
+                pixels = pixels[:,centre - h:]
+                break
+        self.pixels = pixels
+
 
     def alternative_crop(self):
         image = self.pixels
