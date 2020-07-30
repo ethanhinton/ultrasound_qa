@@ -8,7 +8,7 @@ from skimage import measure
 
 
 class DICOMimage:
-
+    # Sets the initial parameters for a standard DICOM Image (REF:1 in supporting document)
     def __init__(self, path):
         self.path = path
         self.data = pydicom.read_file(path)
@@ -27,6 +27,7 @@ class DICOMimage:
                        self.data[0x18, 0x6011][0][0x18, 0x6020].value + self.data[0x18, 0x6011][0][0x18, 0x6018].value]
         self.grayscale()
 
+    # Shows the image
     def showimage(self):
         plt.imshow(self.pixels)
         plt.show()
@@ -48,6 +49,7 @@ class DICOMimage:
         if self.data[0x28, 0x2].value == 3:
             self.pixels = pixels[:, :, 2]
 
+    # Used in the crop_bottom method to condense a list of pixel values down by taking the mean of sets of pixel values (e.g. set of 5 pixel values is averaged to 1 mean value)
     def condense(self, List, factor):
         new_length = int(len(List) / factor)
         standard_deviation = []
@@ -61,6 +63,7 @@ class DICOMimage:
             standard_deviation.append(np.std(mean) / self.minmax(old_list))
         return standard_deviation, mean_list
 
+    # Crops the bottom of the image to remove unwanted blank space / noise
     def crop_bottom(self):
         if self.type == "LINEAR":
             image = self.pixels
@@ -79,9 +82,7 @@ class DICOMimage:
         else:
             self.refactored = image[:index_cut, :]
 
-        plt.imshow(self.refactored)
-        plt.show()
-
+    # Analyses the image, returns coefficent of variation, skew, and low values for the pixel distribution (REF:2)
     def analyse(self):
         if self.type == "LINEAR":
             pixels = self.pixels
@@ -89,7 +90,6 @@ class DICOMimage:
             pixels = self.refactored
 
         columns = [sum(pixels[:,i]) for i in range(pixels.shape[1])]
-        print(columns)
         cov = self.cov(columns)
         skew = self.skew(columns)
         low_L = self.low(columns[:int(len(columns) / 10)], columns)
@@ -97,10 +97,9 @@ class DICOMimage:
         low_C = self.low(columns[int(len(columns) * (3 / 10)):int(len(columns) * (7 / 10))], columns)
         low_CR = self.low(columns[int(len(columns) * (7 / 10)):int(len(columns) * (9 / 10))], columns)
         low_R = self.low(columns[int(len(columns) / 10):], columns)
-        print(cov, skew, low_L, low_CL, low_C, low_CR, low_R)
         return cov, skew, low_L, low_CL, low_C, low_CR, low_R
 
-
+    #Reformats the date of the image to a sutible format
     @staticmethod
     def reformat_date(date):
         year = int(date[:4])
@@ -114,6 +113,7 @@ class DICOMimage:
             day = int(date[6:8])
         return datetime.date(year, month, day).strftime('%d,%m,%Y')
 
+    # Looks down a column of pixels and determines if more than a threshold amount of pixels are nnon zero
     @staticmethod
     def nonzero_threshold(pixels, threshold):
         nonzeros = sum(1 for pixel in pixels if pixel.any() !=0)
@@ -122,6 +122,7 @@ class DICOMimage:
         else:
             return False
 
+    # Determines the point at which the standard deviation is below a threshold value (used in crop_bottom method)
     @staticmethod
     def cutoff_index(standard_dev_list, mean_list, factor):
         for index, value in enumerate(standard_dev_list):
@@ -131,12 +132,14 @@ class DICOMimage:
             elif index == len(standard_dev_list) - 1:
                 return None
 
+    # Finds range of a set of data
     @staticmethod
     def minmax(val_list):
         min_val = min(val_list)
         max_val = max(val_list)
         return max_val - min_val
 
+    # Finds a set of pixels in the middle of the image (used in crop_bottom method)
     @staticmethod
     def middle_values(image, width):
         middle = int(image.shape[1] / 2)
@@ -152,12 +155,14 @@ class DICOMimage:
                     mean_values[pixel] += values[pixel]
         return mean_values
 
+    # Finds the coefficient of variation from a set of data
     @staticmethod
     def cov(columns):
         std = np.std(columns)
         mean = np.mean(columns)
         return (std / mean) * 100
 
+    # Finds the skew of a set of data
     @staticmethod
     def skew(columns):
         n = len(columns)
@@ -173,6 +178,7 @@ class DICOMimage:
         skew = m3 / (m1 ** (3/2))
         return skew
 
+    # Finds the low of a set of data
     @staticmethod
     def low(segment, columns):
         median = np.median(columns)
@@ -184,6 +190,7 @@ class DICOMimage:
                 lowest = (element - median) / median
         return abs(lowest) * 100
 
+# Class for linear DICOM images (REF:3)
 class linearDICOMimage(DICOMimage):
 
     #crops the image to remove information from the outside FINISH!!!!!!!
@@ -193,7 +200,8 @@ class linearDICOMimage(DICOMimage):
         self.region[4] = region[4] - region[0]
         self.pixels = pixels[region[1]:region[3], region[0]:region[2]]
         self.data.PixelData = self.pixels.tobytes()
-        
+
+    # Crops the sides of the image
     def crop_sides(self):
         pixels = self.pixels
         centre = self.region[4]
@@ -208,6 +216,7 @@ class linearDICOMimage(DICOMimage):
                 self.pixels = pixels[:, centre - (h-2):centre + (h-2)]
                 break
 
+    # Crops the sides of the image if the image does not have the region DICOM tags
     def alt_crop_sides(self):
         pixels = self.pixels
         centre = int(pixels.shape[1] / 2)
@@ -232,7 +241,7 @@ class linearDICOMimage(DICOMimage):
                 break
         self.pixels = pixels
 
-
+    # Crops the image if it does not have the region DICOM tags
     def alternative_crop(self):
         image = self.pixels
 
@@ -299,13 +308,16 @@ class linearDICOMimage(DICOMimage):
         plt.imshow(croppedImage)
         plt.show()
 
-
+# Class for curvlinear images (REF:4)
 class curvedDICOMimage(DICOMimage):
 
+    # Has extra attributes that help with refactoring the image
     def __init__(self, path):
         super().__init__(path)
         # Finds the coordinates of the top two points of the curved image and the coordinates of the middle of the sector
+        # REF 4.1.2
         self.sectorcoords = self.find_top_values(), self.find_middle_value()
+        # REF 4.1.1
         self.centre = self.circle_centre()
 
 
@@ -336,7 +348,7 @@ class curvedDICOMimage(DICOMimage):
         h1 = int(np.sqrt(r1**2 - l**2))
         return [middle[0] - m - h1 , middle[1]]
 
-
+    # Refactors the image, making it linear
     def refactor(self):
         STRETCH = 2
 
@@ -347,35 +359,40 @@ class curvedDICOMimage(DICOMimage):
         imageright = self.zero_coords(self.sectorcoords[0][1])
         print('cartesian top left point zeroed --> ' + str(imageleft))
         print('cartesian top left point zeroed --> ' + str(imageright))
-        rho_min = int(self.cart2pol(imageleft[1], imageleft[0])[0])
+        # REF:4.1.4
         phi_max = self.cart2pol(imageleft[1], imageleft[0])[1]
         phi_min = self.cart2pol(imageright[1], imageright[0])[1]
-        print('polar min radius --> ' + str(rho_min))
         print('polar max angle --> ' + str(abs(phi_max)))
+        # REF:4.1.3
+        rho_min = int(self.cart2pol(imageleft[1], imageleft[0])[0])
         rho_max = int(self.pixels.shape[0] - self.centre[0])
+        print('polar min radius --> ' + str(rho_min))
         print('vertical pixels --> ' + str(self.pixels.shape[0]))
         print('polar max radius --> ' + str(rho_max))
+        # REF:4.1.5
         arc_length = abs(int(2 * (phi_max - phi_min) * rho_max))
+        # REF:4.1.6
         phi_increment = (phi_max - phi_min) / arc_length
         print('arc length --> ' + str(arc_length))
         print('angle increment --> ' + str(phi_increment))
 
-        #Creates a blank linear numpy array to input refactored data into
+        #Creates a blank linear numpy array to input refactored data into REF:4.1.7/4.1.8
         refactored = np.ndarray(shape=(STRETCH * (rho_max - rho_min), arc_length))
         print(refactored.shape)
 
         x = 0
+        #REF:4.2.2
         for j in range(arc_length):
             phi = phi_max - (j * phi_increment)
             y = 0
+            # REF:4.1.9
             for i in range(STRETCH * rho_min, STRETCH * (rho_max - 1)):
                 i = i / STRETCH
                 cartesian = self.pol2cart(i, phi)
-                #print(cartesian)
                 cart_reset = self.reset_coords(cartesian)
-                # print(j)
-                # print(cart_reset[0])
+                # REF:4.2.0
                 pixel_val = self.nearest_neighbour(cart_reset[0], cart_reset[1])
+                # REF:4.2.1
                 refactored[y,x] = pixel_val
 
                 y += 1
@@ -384,33 +401,32 @@ class curvedDICOMimage(DICOMimage):
         plt.imshow(refactored)
         plt.show()
         self.refactored = refactored
+        plt.imshow(self.refactored)
+        plt.show()
 
 
-
-
-
-
-
+    # Zeros the cartesian coordinate system around the centre of the circle
     def zero_coords(self, point):
         return (point[0] - self.centre[0], point[1] - self.centre[1])
 
+    # Resets the cartesian coordinates back to what they were originally
     def reset_coords(self, point):
         return (point[0] + self.centre[0], point[1] + self.centre[1])
 
+    # Interpolates using the nearest neighbour function
     def nearest_neighbour(self, y, x):
         y_round = int(round(y))
         x_round = int(round(x))
         return self.pixels[y_round, x_round]
 
-
-
-
+    # Changes the coordinates from cartesian to polar
     @staticmethod
     def cart2pol(x, y):
         rho = np.sqrt(x ** 2 + y ** 2)
         phi = np.arctan2(y, x)
         return (rho, phi)
 
+    # Changes coordinates from polar to cartesian
     @staticmethod
     def pol2cart(rho, phi):
         x = rho * np.cos(phi)
