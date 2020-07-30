@@ -29,8 +29,12 @@ class DICOMimage:
 
     # Shows the image
     def showimage(self):
-        plt.imshow(self.pixels)
-        plt.show()
+        if self.type == "LINEAR":
+            plt.imshow(self.pixels)
+            plt.show()
+        else:
+            plt.imshow(self.refactored)
+            plt.show()
 
     # Prints pixel array in full
     def pixelarray(self):
@@ -295,7 +299,7 @@ class linearDICOMimage(DICOMimage):
             maxx_new = bboxCoord[3]
             maxy_new = bboxCoord[2]
 
-            if maxy_new - miny_new > 0.05 * pixels.shape[0]:
+            if maxy_new - miny_new > 0.05 * image.shape[0]:
                 croppedImage = image[miny_new:maxy_new, minx_new:maxx_new]
             else:
                 croppedImage = image[miny:maxy, minx:maxx]
@@ -398,8 +402,6 @@ class curvedDICOMimage(DICOMimage):
                 y += 1
             x += 1
 
-        plt.imshow(refactored)
-        plt.show()
         self.refactored = refactored
         plt.imshow(self.refactored)
         plt.show()
